@@ -528,6 +528,129 @@ function get_single_teacher(req, res) {
   );
 }
 
+// get all teachers API
+
+function get_all_teachers(req, res) {
+  const page = parseInt(req.query.page) || 1; // Current page number
+  const limit = parseInt(req.query.limit) || 10; // Number of teachers per page
+
+  // Calculate the offset based on the page and limit values
+  const offset = (page - 1) * limit;
+
+  // Query the `teachers` table to get the total count of teachers
+  conn.query("SELECT COUNT(*) AS total_count FROM teachers", (error, countResult) => {
+    if (error) {
+      console.error("Error fetching teacher count:", error);
+      return res.status(500).json({ error: "Failed to get teacher count" });
+    }
+
+    const totalCount = countResult[0].total_count;
+
+    // Query the `teachers` table with pagination
+    conn.query(
+      "SELECT * FROM teachers LIMIT ? OFFSET ?",
+      [limit, offset],
+      (error, results) => {
+        if (error) {
+          console.error("Error fetching teachers:", error);
+          return res.status(500).json({ error: "Failed to get teachers" });
+        }
+
+        // Check if any teachers were found
+        if (results.length === 0) {
+          return res.status(404).json({ error: "No teachers found" });
+        }
+
+        // Create an array to store teacher data
+        const teachersData = [];
+
+        // Iterate over the results and fetch associated data for each teacher
+        results.forEach((teacher) => {
+          const teacherId = teacher.id;
+
+          // Fetch the associated profile_picture from the profile_pictures table
+          conn.query(
+            "SELECT * FROM profile_pictures WHERE teacher_id = ?",
+            [teacherId],
+            (error, photoResults) => {
+              if (error) {
+                console.error("Error fetching profile picture:", error);
+                return res
+                  .status(500)
+                  .json({ error: "Failed to get profile picture" });
+              }
+
+              // Exclude the password field from the teacher data
+              const { password, ...teacherData } = teacher;
+
+              // Add the profile_picture to the teacher data
+              teacherData.profile_picture =
+                photoResults.length > 0 ? photoResults[0].picture_url : null;
+
+              // Fetch the associated general_photos for the teacher
+              conn.query(
+                "SELECT * FROM general_photos WHERE teacher_id = ?",
+                [teacherId],
+                (error, generalPhotoResults) => {
+                  if (error) {
+                    console.error("Error fetching general photos:", error);
+                    return res
+                      .status(500)
+                      .json({ error: "Failed to get general photos" });
+                  }
+
+                  // Add the general_photos to the teacher data
+                  teacherData.general_photos = generalPhotoResults;
+
+                  // Fetch the associated questions for the teacher
+                  conn.query(
+                    "SELECT * FROM questions WHERE teacher_id = ?",
+                    [teacherId],
+                    (error, questionsResults) => {
+                      if (error) {
+                        console.error("Error fetching questions:", error);
+                        return res
+                          .status(500)
+                          .json({ error: "Failed to get questions" });
+                      }
+
+                      // Add the questions to the teacher data
+                      teacherData.questions = questionsResults;
+
+                      // Add the teacher data to the teachersData array
+                      teachersData.push(teacherData);
+
+                      // Check if all teachers have been processed
+                      if (teachersData.length === results.length) {
+                        // Return the totalCount, teachersData, and pagination information as the response
+                        const totalPages = Math.ceil(totalCount / limit);
+                        const nextPage = page < totalPages ? page + 1 : null;
+                        const prevPage = page > 1 ? page - 1 : null;
+
+                        res.status(200).json({
+                          totalCount,
+                          totalPages,
+                          currentPage: page,
+                          nextPage,
+                          prevPage,
+                          teachers: teachersData,
+                        });
+                      }
+                    }
+                  );
+                }
+              );
+            }
+          );
+        });
+      }
+    );
+  });
+}
+
+
+
+
 //   upload photos API by logged-in user
 
 //   function add_photos(req, res) {
@@ -802,8 +925,10 @@ function add_photos(req, res) {
 
 function edit_teacher(req, res) {
   const teacherId = req.params.id; // Assuming the teacher ID is extracted from req.params
+  
   // console.log(req.body);
   const loggedInUserId = req.body.id; // Assuming you have implemented user authentication
+
 
   // Check if the logged-in user is authorized to update the teacher's credentials
   // console.log(loggedInUserId);
@@ -913,143 +1038,143 @@ const update_questions = (req, res) => {
 
 // Change teacher's profile picture API
 
-function change_profile_picture(req, res) {
-  const teacherId = req.params.id; // Assuming the teacher ID is extracted from req.params
-  const loggedInUserId = req.body.id; // Assuming you have implemented user authentication
+// function change_profile_picture(req, res) {
+//   const teacherId = req.params.id; // Assuming the teacher ID is extracted from req.params
+//   const loggedInUserId = req.body.id; // Assuming you have implemented user authentication
 
-  // Check if the logged-in user is authorized to update the teacher's profile picture
-  if (teacherId !== String(loggedInUserId)) {
-    return res
-      .status(403)
-      .json({ error: "Forbidden, You are not allowed to make changes" });
-  }
+//   // Check if the logged-in user is authorized to update the teacher's profile picture
+//   if (teacherId !== String(loggedInUserId)) {
+//     return res
+//       .status(403)
+//       .json({ error: "Forbidden, You are not allowed to make changes" });
+//   }
 
-  const { profile_picture } = req.body;
-  // console.log(profile_picture);
-  // Check if profile picture is provided
-  if (!req.file) {
-    return res.status(400).json({ error: "Profile picture is required" });
-  }
+//   const { profile_picture } = req.body;
+//   // console.log(profile_picture);
+//   // Check if profile picture is provided
+//   if (!req.file) {
+//     return res.status(400).json({ error: "Profile picture is required" });
+//   }
 
-  // Delete the old profile picture from Cloudinary
-  conn.query(
-    "SELECT picture_url FROM profile_pictures WHERE teacher_id = ?",
-    [teacherId],
-    (error, results) => {
-      if (error) {
-        console.error("Error fetching teacher profile picture:", error);
-        return res
-          .status(500)
-          .json({ error: "Failed to change profile picture" });
-      }
+//   // Delete the old profile picture from Cloudinary
+//   conn.query(
+//     "SELECT picture_url FROM profile_pictures WHERE teacher_id = ?",
+//     [teacherId],
+//     (error, results) => {
+//       if (error) {
+//         console.error("Error fetching teacher profile picture:", error);
+//         return res
+//           .status(500)
+//           .json({ error: "Failed to change profile picture" });
+//       }
 
-      // Check if the teacher has an existing profile picture
-      const oldProfilePicture = results[0].picture_url;
-      if (oldProfilePicture) {
-        // Delete the old profile picture from Cloudinary
-        const publicId = oldProfilePicture.split("/").pop().split(".")[0];
-        cloudinary.uploader.destroy(publicId, (error, result) => {
-          if (error) {
-            console.error(
-              "Error deleting old profile picture from Cloudinary:",
-              error
-            );
-            return res
-              .status(500)
-              .json({ error: "Failed to change profile picture" });
-          }
+//       // Check if the teacher has an existing profile picture
+//       const oldProfilePicture = results[0].picture_url;
+//       if (oldProfilePicture) {
+//         // Delete the old profile picture from Cloudinary
+//         const publicId = oldProfilePicture.split("/").pop().split(".")[0];
+//         cloudinary.uploader.destroy(publicId, (error, result) => {
+//           if (error) {
+//             console.error(
+//               "Error deleting old profile picture from Cloudinary:",
+//               error
+//             );
+//             return res
+//               .status(500)
+//               .json({ error: "Failed to change profile picture" });
+//           }
 
-          // Update the teacher's profile picture in the `teachers` table
-          updateProfilePicture();
-        });
-      } else {
-        // No old profile picture to delete, directly update the teacher's profile picture
-        addProfilePicture();
-      }
-    }
-  );
+//           // Update the teacher's profile picture in the `teachers` table
+//           updateProfilePicture();
+//         });
+//       } else {
+//         // No old profile picture to delete, directly update the teacher's profile picture
+//         addProfilePicture();
+//       }
+//     }
+//   );
 
-  // Update the teacher's profile picture in the `teachers` table
-  function updateProfilePicture() {
-    // Upload the new profile picture to Cloudinary
-    cloudinary.uploader.upload(
-      req.file.path,
-      { folder: "profile_pictures", resource_type: "auto" },
-      (error, result) => {
-        if (error) {
-          console.error(
-            "Error uploading profile picture to Cloudinary:",
-            error
-          );
-          return res
-            .status(500)
-            .json({ error: "Failed to change profile picture" });
-        }
+//   // Update the teacher's profile picture in the `teachers` table
+//   function updateProfilePicture() {
+//     // Upload the new profile picture to Cloudinary
+//     cloudinary.uploader.upload(
+//       req.file.path,
+//       { folder: "profile_pictures", resource_type: "auto" },
+//       (error, result) => {
+//         if (error) {
+//           console.error(
+//             "Error uploading profile picture to Cloudinary:",
+//             error
+//           );
+//           return res
+//             .status(500)
+//             .json({ error: "Failed to change profile picture" });
+//         }
 
-        const newProfilePicture = result.secure_url;
-        const newProfilePictureid = result.public_id;
+//         const newProfilePicture = result.secure_url;
+//         const newProfilePictureid = result.public_id;
 
-        // Update the teacher's profile picture in the `teachers` table
-        conn.query(
-          "UPDATE profile_pictures SET picture_url = ?, public_id = ? WHERE teacher_id = ?",
-          [newProfilePicture, newProfilePictureid, teacherId],
-          (error, results) => {
-            if (error) {
-              console.error("Error updating teacher profile picture:", error);
-              return res
-                .status(500)
-                .json({ error: "Failed to change profile picture" });
-            }
+//         // Update the teacher's profile picture in the `teachers` table
+//         conn.query(
+//           "UPDATE profile_pictures SET picture_url = ?, public_id = ? WHERE teacher_id = ?",
+//           [newProfilePicture, newProfilePictureid, teacherId],
+//           (error, results) => {
+//             if (error) {
+//               console.error("Error updating teacher profile picture:", error);
+//               return res
+//                 .status(500)
+//                 .json({ error: "Failed to change profile picture" });
+//             }
 
-            res
-              .status(200)
-              .json({ message: "Profile picture changed successfully" });
-          }
-        );
-      }
-    );
-  }
+//             res
+//               .status(200)
+//               .json({ message: "Profile picture changed successfully" });
+//           }
+//         );
+//       }
+//     );
+//   }
 
-  function addProfilePicture() {
-    // Upload the new profile picture to Cloudinary
-    cloudinary.uploader.upload(
-      req.file.path,
-      { folder: "profile_pictures", resource_type: "auto" },
-      (error, result) => {
-        if (error) {
-          console.error(
-            "Error uploading profile picture to Cloudinary:",
-            error
-          );
-          return res
-            .status(500)
-            .json({ error: "Failed to change profile picture" });
-        }
+//   function addProfilePicture() {
+//     // Upload the new profile picture to Cloudinary
+//     cloudinary.uploader.upload(
+//       req.file.path,
+//       { folder: "profile_pictures", resource_type: "auto" },
+//       (error, result) => {
+//         if (error) {
+//           console.error(
+//             "Error uploading profile picture to Cloudinary:",
+//             error
+//           );
+//           return res
+//             .status(500)
+//             .json({ error: "Failed to change profile picture" });
+//         }
 
-        const newProfilePicture = result.secure_url;
-        const newProfilePictureid = result.public_id;
+//         const newProfilePicture = result.secure_url;
+//         const newProfilePictureid = result.public_id;
 
-        // Update the teacher's profile picture in the `teachers` table
-        conn.query(
-          "insert into profile_pictures (picture_url, public_id, teacher_id) values (?, ?, ?)",
-          [newProfilePicture, newProfilePictureid, teacherId],
-          (error, results) => {
-            if (error) {
-              console.error("Error updating teacher profile picture:", error);
-              return res
-                .status(500)
-                .json({ error: "Failed to change profile picture" });
-            }
+//         // Update the teacher's profile picture in the `teachers` table
+//         conn.query(
+//           "insert into profile_pictures (picture_url, public_id, teacher_id) values (?, ?, ?)",
+//           [newProfilePicture, newProfilePictureid, teacherId],
+//           (error, results) => {
+//             if (error) {
+//               console.error("Error updating teacher profile picture:", error);
+//               return res
+//                 .status(500)
+//                 .json({ error: "Failed to change profile picture" });
+//             }
 
-            res
-              .status(200)
-              .json({ message: "Profile picture uploaded successfully" });
-          }
-        );
-      }
-    );
-  }
-}
+//             res
+//               .status(200)
+//               .json({ message: "Profile picture uploaded successfully" });
+//           }
+//         );
+//       }
+//     );
+//   }
+// }
 
 // ####### profile picture chnage API #######
 
@@ -1440,6 +1565,7 @@ module.exports = {
   login_teacher,
   supportform,
   get_single_teacher,
+  get_all_teachers,
   add_photos,
   edit_teacher,
   change_profile_picture,

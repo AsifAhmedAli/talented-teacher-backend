@@ -52,6 +52,13 @@ router.get(
   teachers_controller.get_single_teacher
 );
 
+// get all teachers
+router.get(
+  "/get-all-teachers",
+  // authMiddleware,
+  teachers_controller.get_all_teachers
+);
+
 //  ###### Edit routes ########
 
 // Edit teacher's credentials and profile picture

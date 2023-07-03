@@ -319,9 +319,41 @@ const check_tournament_status = (req, res) => {
 };
 
 //get winner
+// const get_winner = (req, res) => {
+//   conn.query(
+//     "select * from contest_setup where status = 1",
+//     (error, results) => {
+//       if (error) {
+//         console.error("Error getting contest status:", error);
+//         return res.status(500).json({
+//           error: "Failed to get contest status",
+//         });
+//       }
+//       if (results.length == 0) {
+//         // return res.status(200).json({ msg: "Contest Ended" });
+//         conn.query(
+//           "select * from teachers where position = 1",
+//           (error, results) => {
+//             if (error) {
+//               console.error("Error getting winner:", error);
+//               return res.status(500).json({
+//                 error: "Failed to get the winner",
+//               });
+//             }
+//             // console.log(results[0]);
+//             delete results[0].password;
+//             return res.status(200).json({ winner: results[0] });
+//           }
+//         );
+//       }
+//       // return res.status(200).json({ Current_phase: results[0].phase });
+//     }
+//   );
+// };
+
 const get_winner = (req, res) => {
   conn.query(
-    "select * from contest_setup where status = 1",
+    "SELECT * FROM contest_setup WHERE status = 1",
     (error, results) => {
       if (error) {
         console.error("Error getting contest status:", error);
@@ -329,10 +361,9 @@ const get_winner = (req, res) => {
           error: "Failed to get contest status",
         });
       }
-      if (results.length == 0) {
-        // return res.status(200).json({ msg: "Contest Ended" });
+      if (results.length === 0) {
         conn.query(
-          "select * from teachers where position = 1",
+          "SELECT * FROM teachers WHERE position = 1 ORDER BY vote_count DESC LIMIT 1",
           (error, results) => {
             if (error) {
               console.error("Error getting winner:", error);
@@ -340,16 +371,17 @@ const get_winner = (req, res) => {
                 error: "Failed to get the winner",
               });
             }
-            // console.log(results[0]);
             delete results[0].password;
             return res.status(200).json({ winner: results[0] });
           }
         );
+      } else {
+        return res.status(200).json({ message: "Contest is still active" });
       }
-      // return res.status(200).json({ Current_phase: results[0].phase });
     }
   );
 };
+
 module.exports = {
   check_tournament_status,
   toggle_double_vote,
