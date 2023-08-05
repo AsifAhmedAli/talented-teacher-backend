@@ -4,7 +4,9 @@ const cloudinary = require("cloudinary").v2;
 const bcrypt = require("bcryptjs");
 const {
   sendConfirmationEmail,
+
   sendVerificationSuccessEmail,
+  sendreceipt,
 } = require("../helpers/email");
 
 // Configure Cloudinary
@@ -147,7 +149,9 @@ cloudinary.config({
 
 // Register a new teacher
 function register_teacher(req, res) {
-  const { name, email, password, address, phone } = req.body;
+  const { name, email, password, address, phone, how_hear, othervalue } =
+    req.body;
+  // console.log(req.body)
 
   // Check if email already exists in the `teachers` table
   conn.query(
@@ -178,8 +182,8 @@ function register_teacher(req, res) {
 
         // Insert the teacher's data into the `teachers` table with the hashed password, address, and phone
         conn.query(
-          "INSERT INTO teachers (name, email, password, address, phone) VALUES (?, ?, ?, ?, ?)",
-          [name, email, hashedPassword, address, phone],
+          "INSERT INTO teachers (name, email, password, address, phone, hear_how, other_value) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [name, email, hashedPassword, address, phone, how_hear, othervalue],
           (error, results) => {
             if (error) {
               console.error("Error registering teacher:", error);
@@ -191,7 +195,7 @@ function register_teacher(req, res) {
             const teacherId = results.insertId;
 
             // Send confirmation email
-            sendConfirmationEmail(email, verificationToken);
+            sendConfirmationEmail(name, email, verificationToken);
 
             res.status(200).json({
               message:
@@ -528,29 +532,109 @@ function get_single_teacher(req, res) {
   );
 }
 
+function getateacher(req, res) {
+  const teacherId = req.params.id;
+
+  // Query the `teachers` table to get the teacher by ID
+  conn.query(
+    "SELECT * FROM teachers WHERE id = ?",
+    [teacherId],
+    (error, results) => {
+      if (error) {
+        console.error("Error fetching teacher:", error);
+        return res.status(500).json({ error: "Failed to get teacher" });
+      }
+
+      // Check if the teacher exists
+      if (results.length === 0) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+
+      // Fetch the associated profile_picture from the profile_pictures table
+      conn.query(
+        "SELECT * FROM profile_pictures WHERE teacher_id = ?",
+        [teacherId],
+        (error, photoResults) => {
+          if (error) {
+            console.error("Error fetching profile picture:", error);
+            return res
+              .status(500)
+              .json({ error: "Failed to get profile picture" });
+          }
+
+          // Exclude the password field from the teacher data
+          const { password, ...teacherData } = results[0];
+
+          // Add the profile_picture to the teacher data
+          teacherData.profile_picture =
+            photoResults.length > 0 ? photoResults[0].picture_url : null;
+
+          // Fetch the associated general_photos for the teacher
+          conn.query(
+            "SELECT * FROM general_photos WHERE teacher_id = ?",
+            [teacherId],
+            (error, generalPhotoResults) => {
+              if (error) {
+                console.error("Error fetching general photos:", error);
+                return res
+                  .status(500)
+                  .json({ error: "Failed to get general photos" });
+              }
+
+              // Add the general_photos to the teacher data
+              teacherData.general_photos = generalPhotoResults;
+              conn.query(
+                "SELECT * FROM questions WHERE teacher_id = ?",
+                [teacherId],
+                (error, questionsResults) => {
+                  if (error) {
+                    console.error("Error fetching questions:", error);
+                    return res
+                      .status(500)
+                      .json({ error: "Failed to get questions" });
+                  }
+
+                  // Add the general_photos to the teacher data
+                  teacherData.questions = questionsResults;
+
+                  res.status(200).json({ teacher: teacherData });
+                }
+              );
+            }
+          );
+        }
+      );
+    }
+  );
+}
+// /teacher/getateacher
 // get all teachers API
 
 function get_all_teachers(req, res) {
   const page = parseInt(req.query.page) || 1; // Current page number
-  const limit = parseInt(req.query.limit) || 10; // Number of teachers per page
+  const limit = parseInt(req.query.limit); // Number of teachers per page
 
   // Calculate the offset based on the page and limit values
-  const offset = (page - 1) * limit;
+  const offset = limit ? (page - 1) * limit : undefined;
 
   // Query the `teachers` table to get the total count of teachers
-  conn.query("SELECT COUNT(*) AS total_count FROM teachers", (error, countResult) => {
-    if (error) {
-      console.error("Error fetching teacher count:", error);
-      return res.status(500).json({ error: "Failed to get teacher count" });
-    }
+  conn.query(
+    "SELECT COUNT(*) AS total_count FROM teachers",
+    (error, countResult) => {
+      if (error) {
+        console.error("Error fetching teacher count:", error);
+        return res.status(500).json({ error: "Failed to get teacher count" });
+      }
 
-    const totalCount = countResult[0].total_count;
+      const totalCount = countResult[0].total_count;
 
-    // Query the `teachers` table with pagination
-    conn.query(
-      "SELECT * FROM teachers LIMIT ? OFFSET ?",
-      [limit, offset],
-      (error, results) => {
+      // Query the `teachers` table with pagination
+      const query = limit
+        ? "SELECT * FROM teachers LIMIT ? OFFSET ?"
+        : "SELECT * FROM teachers";
+      const params = limit ? [limit, offset] : [];
+
+      conn.query(query, params, (error, results) => {
         if (error) {
           console.error("Error fetching teachers:", error);
           return res.status(500).json({ error: "Failed to get teachers" });
@@ -643,13 +727,10 @@ function get_all_teachers(req, res) {
             }
           );
         });
-      }
-    );
-  });
+      });
+    }
+  );
 }
-
-
-
 
 //   upload photos API by logged-in user
 
@@ -925,10 +1006,9 @@ function add_photos(req, res) {
 
 function edit_teacher(req, res) {
   const teacherId = req.params.id; // Assuming the teacher ID is extracted from req.params
-  
+
   // console.log(req.body);
   const loggedInUserId = req.body.id; // Assuming you have implemented user authentication
-
 
   // Check if the logged-in user is authorized to update the teacher's credentials
   // console.log(loggedInUserId);
@@ -981,7 +1061,7 @@ function edit_teacher(req, res) {
   );
 }
 const update_questions = (req, res) => {
-  const { question1, question2, question3, question4 } = req.body;
+  const { question1, question2, question3, question4, question5 } = req.body;
   const teacherId = req.body.id;
 
   conn.query(
@@ -998,8 +1078,8 @@ const update_questions = (req, res) => {
       if (results.length === 0) {
         // No existing questions, insert new questions
         conn.query(
-          "INSERT INTO questions (teacher_id, question1, question2, question3, question4) VALUES (?, ?, ?, ?, ?)",
-          [teacherId, question1, question2, question3, question4],
+          "INSERT INTO questions (teacher_id, question1, question2, question3, question4, question5) VALUES (?, ?, ?, ?, ?, ?)",
+          [teacherId, question1, question2, question3, question4, question5],
           (error) => {
             if (error) {
               console.error("Error adding security questions:", error);
@@ -1016,8 +1096,8 @@ const update_questions = (req, res) => {
       } else {
         // Update existing questions
         conn.query(
-          "UPDATE questions SET question1 = ?, question2 = ?, question3 = ? , question4 = ? WHERE teacher_id = ?",
-          [question1, question2, question3, question4, teacherId],
+          "UPDATE questions SET question1 = ?, question2 = ?, question3 = ? , question4 = ?, question5 = ? WHERE teacher_id = ?",
+          [question1, question2, question3, question4, question5, teacherId],
           (error) => {
             if (error) {
               console.error("Error updating security questions:", error);
@@ -1355,6 +1435,7 @@ function delete_photo(req, res) {
 
 function normal_vote(req, res) {
   const { voter_name, voter_email } = req.body;
+  console.log(req.body);
   const teacher_ID = req.params.id;
   const currentDate = new Date().toISOString().split("T")[0]; // Get the current date
 
@@ -1412,8 +1493,15 @@ function normal_vote(req, res) {
 
               // Insert the vote into the `votes` table
               conn.query(
-                "INSERT INTO votes (voter_name, voter_email, vote_date, teacher_id, hero) VALUES (?, ?, ?, ?, ?)",
-                [voter_name, voter_email, currentDate, req.params.id, 0],
+                "INSERT INTO votes (voter_name, voter_email,vote_date, teacher_id, hero, voteCount) VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                  voter_name,
+                  voter_email,
+                  currentDate,
+                  req.params.id,
+                  0,
+                  voteCount,
+                ],
                 (error, results) => {
                   if (error) {
                     console.error("Error casting vote:", error);
@@ -1449,6 +1537,72 @@ function normal_vote(req, res) {
   );
 }
 
+//cast hero vote
+
+function hero_vote(req, res) {
+  const { voter_name, voter_email } = req.body;
+  // console.log(req.body);
+  // console.log(voter_email);
+  // const teacher_ID = req.params.id;
+  const amount = req.body.amount;
+  // console.log(amount);
+
+  const currentDate = new Date().toISOString().split("T")[0]; // Get the current date
+
+  // Check if the visitor has already cast a vote today using the provided email address
+
+  // Check if the voter is voting for oneself
+
+  // Retrieve the double vote configuration
+  conn.query(
+    "SELECT double_vote_on_off FROM dbl_vote_configuration",
+    (error, results) => {
+      if (error) {
+        console.error("Error retrieving double vote configuration:", error);
+        return res.status(500).json({ error: "Failed to cast vote" });
+      }
+
+      const doubleVoteEnabled = results[0].double_vote_on_off === "on";
+
+      // Update the vote count based on the double vote configuration
+      var voteCount = doubleVoteEnabled ? 2 : 1;
+      // var newvotecount = voteCount;
+      voteCount = voteCount * amount;
+      // console.log(voteCount);
+      // Insert the vote into the `votes` table
+      conn.query(
+        "INSERT INTO votes (voter_name, voter_email,vote_date, teacher_id, hero, voteCount) VALUES (?, ?, ?,?, ?,  ?)",
+        [voter_name, voter_email, currentDate, req.params.id, 1, voteCount],
+        (error, results) => {
+          if (error) {
+            console.error("Error casting vote:", error);
+            return res.status(500).json({ error: "Failed to cast vote" });
+          }
+
+          // Update the vote_count in the `teachers` table
+          conn.query(
+            "UPDATE teachers SET vote_count = vote_count + ? WHERE id = ?",
+            [voteCount, req.params.id],
+            (error) => {
+              if (error) {
+                console.error("Error updating vote count:", error);
+                return res.status(500).json({ error: "Failed to cast vote" });
+              }
+              sendreceipt(
+                voter_name,
+                amount,
+                voter_email,
+                voteCount,
+                req.params.id
+              );
+              res.status(200).json({ message: "Vote Casted Successfully" });
+            }
+          );
+        }
+      );
+    }
+  );
+}
 const update_positions = (req, res) => {
   // SELECT * FROM groups g join teachers t on g.teacher_id = t.id order by g.group_id asc
   conn.query(
@@ -1557,21 +1711,67 @@ const supportform = (req, res) => {
     }
   );
 };
+
+const check_tournament_status = (req, res) => {
+  conn.query(
+    "select * from contest_setup where status = 1",
+    (error, results) => {
+      if (error) {
+        console.error("Error getting contest status:", error);
+        return res.status(500).json({
+          error: "Failed to get contest status",
+        });
+      }
+      if (results.length == 0) {
+        return res.status(200).json({ msg: "Contest Ended" });
+      }
+      return res.status(200).json({ Current_phase: results[0].phase });
+    }
+  );
+};
+
+const members_of_a_group = (req, res) => {
+  const group_id = req.body.id;
+  conn.query(
+    "select * from teachers where group_id = ? order by position asc",
+    [group_id],
+    (error, results) => {
+      if (error) {
+        console.error("Error getting contest status:", error);
+        return res.status(500).json({
+          error: "Failed to get contest status",
+        });
+      }
+      // console.log(results.position);
+      results.forEach((element) => {
+        console.log(element.position);
+      });
+      return res.status(200).json({ members: results });
+    }
+  );
+};
+
+//  Get all voters API
+
 module.exports = {
   register_teacher,
   all_hero_votes,
+  check_tournament_status,
   confirm_email,
   all_votes,
   login_teacher,
   supportform,
   get_single_teacher,
   get_all_teachers,
+  members_of_a_group,
   add_photos,
   edit_teacher,
   change_profile_picture,
   delete_photo,
   update_questions,
   normal_vote,
+  getateacher,
   check_registration_status,
   update_positions,
+  hero_vote,
 };
