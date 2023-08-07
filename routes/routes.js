@@ -99,6 +99,11 @@ router.put(
   teachers_controller.change_profile_picture
 );
 
+router.get(
+  "/chat-room-history1/:chatroomID",
+  authMiddleware,
+  chat_controller.get_all_messages_of_a_chatroom1
+);
 //  ###### Delete routes ########
 
 // route for deleting a photo
@@ -127,6 +132,11 @@ router.get(
 );
 router.post("/members-of-a-group", teachers_controller.members_of_a_group);
 router.post("/cast-hero-vote/:id", teachers_controller.hero_vote);
+router.post(
+  "/send-message1",
+  authMiddleware,
+  teachers_controller.send_message1
+);
 // ###### ADMIN ROUTES ############ //
 
 router.post("/admin/login", admin_controller.login_for_admin);
@@ -141,6 +151,16 @@ router.post("/admin/toggle-registration", admin_controller.toggle_registration);
 //calculate positions based on votes in each group
 //onload of every page
 router.get("/update-positions", teachers_controller.update_positions);
+router.get(
+  "/get-all-verified-teachers",
+  teachers_controller.get_all_verified_teachers
+);
+
+router.get(
+  "/all-chat-rooms-of-one-user/:id",
+  chat_controller.get_all_chat_rooms_of_one_user
+);
+
 router.get("/admin/start-contest", admin_controller.contest_start_step_1);
 router.post("/admin/start-contest-1", admin_controller.start_contest_step_2);
 router.get("/admin/contest-next-phase", admin_controller.contest_next_phase);
@@ -159,7 +179,11 @@ router.get("/admin/fetch-tickets", admin_controller.fetch_tickets);
 
 // Get All Voter Route
 
-router.get("/get-all-voters",authMiddlewareForAdmin, admin_controller.get_all_voters);
+router.get(
+  "/get-all-voters",
+  authMiddlewareForAdmin,
+  admin_controller.get_all_voters
+);
 
 // Route for handling file uploads and sending emails
 router.post(
@@ -179,11 +203,19 @@ router.post(
 );
 
 // ADD MEMBERS
-router.post("/admin/add-members",authMiddlewareForAdmin, chat_controller.add_members);
+router.post(
+  "/admin/add-members",
+  authMiddlewareForAdmin,
+  chat_controller.add_members
+);
 
 // New Messag Route
 
-router.post("/send-message",authMiddlewareForAdmin, chat_controller.send_message);
+router.post(
+  "/send-message",
+  authMiddlewareForAdmin,
+  chat_controller.send_message
+);
 
 // attachments route
 
@@ -212,8 +244,10 @@ router.get(
 
 // getAll chat rooms
 
-router.get("/all-chat-rooms",
-authMiddlewareForAdmin,
- chat_controller.get_all_chat_rooms);
+router.get(
+  "/all-chat-rooms",
+  authMiddlewareForAdmin,
+  chat_controller.get_all_chat_rooms
+);
 
 module.exports = router;

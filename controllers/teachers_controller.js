@@ -732,6 +732,127 @@ function get_all_teachers(req, res) {
   );
 }
 
+function get_all_verified_teachers(req, res) {
+  const page = parseInt(req.query.page) || 1; // Current page number
+  const limit = parseInt(req.query.limit); // Number of teachers per page
+
+  // Calculate the offset based on the page and limit values
+  const offset = limit ? (page - 1) * limit : undefined;
+
+  // Query the `teachers` table to get the total count of teachers
+  conn.query(
+    "SELECT COUNT(*) AS total_count FROM teachers where is_email_verified = 1",
+    (error, countResult) => {
+      if (error) {
+        console.error("Error fetching teacher count:", error);
+        return res.status(500).json({ error: "Failed to get teacher count" });
+      }
+
+      const totalCount = countResult[0].total_count;
+
+      // Query the `teachers` table with pagination
+      const query = limit
+        ? "SELECT * FROM teachers where is_email_verified = 1 LIMIT ? OFFSET ?"
+        : "SELECT * FROM teachers where is_email_verified = 1";
+      const params = limit ? [limit, offset] : [];
+
+      conn.query(query, params, (error, results) => {
+        if (error) {
+          console.error("Error fetching teachers:", error);
+          return res.status(500).json({ error: "Failed to get teachers" });
+        }
+
+        // Check if any teachers were found
+        if (results.length === 0) {
+          return res.status(404).json({ error: "No teachers found" });
+        }
+
+        // Create an array to store teacher data
+        const teachersData = [];
+
+        // Iterate over the results and fetch associated data for each teacher
+        results.forEach((teacher) => {
+          const teacherId = teacher.id;
+
+          // Fetch the associated profile_picture from the profile_pictures table
+          conn.query(
+            "SELECT * FROM profile_pictures WHERE teacher_id = ?",
+            [teacherId],
+            (error, photoResults) => {
+              if (error) {
+                console.error("Error fetching profile picture:", error);
+                return res
+                  .status(500)
+                  .json({ error: "Failed to get profile picture" });
+              }
+
+              // Exclude the password field from the teacher data
+              const { password, ...teacherData } = teacher;
+
+              // Add the profile_picture to the teacher data
+              teacherData.profile_picture =
+                photoResults.length > 0 ? photoResults[0].picture_url : null;
+
+              // Fetch the associated general_photos for the teacher
+              conn.query(
+                "SELECT * FROM general_photos WHERE teacher_id = ?",
+                [teacherId],
+                (error, generalPhotoResults) => {
+                  if (error) {
+                    console.error("Error fetching general photos:", error);
+                    return res
+                      .status(500)
+                      .json({ error: "Failed to get general photos" });
+                  }
+
+                  // Add the general_photos to the teacher data
+                  teacherData.general_photos = generalPhotoResults;
+
+                  // Fetch the associated questions for the teacher
+                  conn.query(
+                    "SELECT * FROM questions WHERE teacher_id = ?",
+                    [teacherId],
+                    (error, questionsResults) => {
+                      if (error) {
+                        console.error("Error fetching questions:", error);
+                        return res
+                          .status(500)
+                          .json({ error: "Failed to get questions" });
+                      }
+
+                      // Add the questions to the teacher data
+                      teacherData.questions = questionsResults;
+
+                      // Add the teacher data to the teachersData array
+                      teachersData.push(teacherData);
+
+                      // Check if all teachers have been processed
+                      if (teachersData.length === results.length) {
+                        // Return the totalCount, teachersData, and pagination information as the response
+                        const totalPages = Math.ceil(totalCount / limit);
+                        const nextPage = page < totalPages ? page + 1 : null;
+                        const prevPage = page > 1 ? page - 1 : null;
+
+                        res.status(200).json({
+                          totalCount,
+                          totalPages,
+                          currentPage: page,
+                          nextPage,
+                          prevPage,
+                          teachers: teachersData,
+                        });
+                      }
+                    }
+                  );
+                }
+              );
+            }
+          );
+        });
+      });
+    }
+  );
+}
 //   upload photos API by logged-in user
 
 //   function add_photos(req, res) {
@@ -1753,10 +1874,59 @@ const members_of_a_group = (req, res) => {
 
 //  Get all voters API
 
+const send_message1 = (req, res) => {
+  const { sender_id, chatroomID, message } = req.body;
+
+  // Check if the sender_id exists in either 'adminuser' or 'teachers' table
+  const checkTeacherQuery = "SELECT id FROM teachers WHERE id = ?";
+
+  conn.query(checkTeacherQuery, [sender_id], (err, teacherResult) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Failed to check teacher" });
+    }
+
+    if (teacherResult.length === 0) {
+      return res.status(404).json({ error: "Sender not found" });
+    }
+
+    // Check if the chatroomID exists in the 'chatrooms' table
+    const checkChatroomQuery = "SELECT id FROM chatrooms WHERE id = ?";
+    conn.query(checkChatroomQuery, [chatroomID], (err, chatroomResult) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Failed to check chatroom" });
+      }
+
+      if (chatroomResult.length === 0) {
+        return res.status(404).json({ error: "Chatroom not found" });
+      }
+
+      // Insert the message into the 'messages' table
+      const insertMessageQuery =
+        "INSERT INTO messages (sender_id, chatroomID, message) VALUES (?, ?, ?)";
+      conn.query(
+        insertMessageQuery,
+        [sender_id, chatroomID, message],
+        (err, result) => {
+          if (err) {
+            console.error(err);
+            return res
+              .status(500)
+              .json({ error: "Failed to send the message" });
+          }
+
+          res.status(201).json({ message: "Message sent successfully" });
+        }
+      );
+    });
+  });
+};
 module.exports = {
   register_teacher,
   all_hero_votes,
   check_tournament_status,
+  get_all_verified_teachers,
   confirm_email,
   all_votes,
   login_teacher,
@@ -1770,6 +1940,7 @@ module.exports = {
   delete_photo,
   update_questions,
   normal_vote,
+  send_message1,
   getateacher,
   check_registration_status,
   update_positions,
