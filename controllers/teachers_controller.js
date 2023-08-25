@@ -1922,6 +1922,7 @@ const send_message1 = (req, res) => {
     });
   });
 };
+// latest_chat_room;
 module.exports = {
   register_teacher,
   all_hero_votes,

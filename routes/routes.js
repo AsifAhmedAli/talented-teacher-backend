@@ -137,6 +137,12 @@ router.post(
   authMiddleware,
   teachers_controller.send_message1
 );
+
+router.post(
+  "/fetch-latest-chatroom-of-a-user/:id",
+  authMiddleware,
+  chat_controller.latest_chat_room
+);
 // ###### ADMIN ROUTES ############ //
 
 router.post("/admin/login", admin_controller.login_for_admin);

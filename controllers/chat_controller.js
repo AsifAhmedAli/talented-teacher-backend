@@ -689,6 +689,73 @@ const get_all_chat_rooms_of_one_user = (req, res) => {
   });
 };
 
+const latest_chat_room = (req, res) => {
+  const tid = req.params.id;
+  conn.query(
+    "select max(chatroomID) as maxid from chatroomsmembers where memberID = ?",
+    [tid],
+    (error, results) => {
+      if (error) {
+        console.error(error);
+        return res.status(500).json({ error: "Failed to fetch messages" });
+      }
+      // console.log(tid);
+      const chatroomID = results[0].maxid;
+      const getMessagesQuery = `
+    SELECT messages.*, teachers.name AS sender_name
+    FROM messages
+    LEFT JOIN teachers ON messages.sender_id = teachers.id
+    WHERE messages.chatroomID = ?
+  `;
+
+      conn.query(getMessagesQuery, [chatroomID], (err, messagesResult) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ error: "Failed to fetch messages" });
+        }
+
+        if (messagesResult.length === 0) {
+          return res
+            .status(404)
+            .json({ error: "No messages found for the chatroom" });
+        }
+
+        // Retrieve all attachments of the specified chatroom from the 'attachments' table
+        const getAttachmentsQuery =
+          "SELECT * FROM attachments WHERE chatroomID = ?";
+        conn.query(
+          getAttachmentsQuery,
+          [chatroomID],
+          (err, attachmentResult) => {
+            if (err) {
+              console.error(err);
+              return res
+                .status(500)
+                .json({ error: "Failed to fetch attachments" });
+            }
+
+            // Merge sender names with messages
+            const messagesWithAttachments = messagesResult.map((message) => {
+              // Filter attachments for the current message
+              const attachments = attachmentResult.filter(
+                (attachment) => attachment.message_id === message.id
+              );
+              return { ...message, attachments };
+            });
+            res
+              .status(200)
+              .json({
+                messages: messagesWithAttachments,
+                chatroomID: chatroomID,
+              });
+          }
+        );
+      });
+    }
+  );
+
+  // Retrieve all messages of the specified chatroom from the 'messages' table along with sender names from 'teachers' table
+};
 module.exports = {
   new_chat_room,
   add_members,
@@ -697,6 +764,7 @@ module.exports = {
   get_all_messages_of_a_chatroom,
   get_all_messages_of_a_chatroom1,
   get_members_of_chat_room,
+  latest_chat_room,
   get_all_chat_rooms,
   get_all_chat_rooms_of_one_user,
 };
