@@ -539,7 +539,8 @@ async function sendEmailToVoters(req, res) {
         from: process.env.EMAIL_SENDER,
         to: recipientEmails.join(", "), // Join email addresses with a comma and space
         subject: req.body.subject,
-        text: req.body.text,
+        // text: req.body.text,
+        html: req.body.html,
         attachments: [],
       };
 
