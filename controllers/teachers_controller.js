@@ -2,6 +2,8 @@ const conn = require("../conn/connection.js");
 const jwt = require("jsonwebtoken");
 const cloudinary = require("cloudinary").v2;
 const bcrypt = require("bcryptjs");
+const request = require("request");
+
 const {
   sendConfirmationEmail,
 
@@ -193,7 +195,29 @@ function register_teacher(req, res) {
             }
 
             const teacherId = results.insertId;
+            const options = {
+              method: "POST",
+              url: `${process.env.active_campaign_URL}/api/3/contacts`,
+              headers: {
+                accept: "application/json",
+                "content-type": "application/json",
+                "Api-Token": `${process.env.ACTIVE_CAMPAIGN_API_KEY}`,
+              },
+              body: {
+                contact: {
+                  email: email,
+                  firstName: name,
+                  phone: phone,
+                  fieldValues: [],
+                },
+              },
+              json: true,
+            };
+            request(options, function (error, response, body) {
+              if (error) throw new Error(error);
 
+              console.log(body);
+            });
             // Send confirmation email
             sendConfirmationEmail(name, email, verificationToken);
 
@@ -250,7 +274,7 @@ function confirm_email(req, res) {
             }
 
             const teacherCount = results[0].teacher_count;
-            const groupId = Math.floor(teacherCount / 15) + 1; // Calculate the group ID for the teacher
+            const groupId = Math.floor(teacherCount / 25) + 1; // Calculate the group ID for the teacher
 
             // Update the teacher's email verification status and set is_email_verified to 1
             conn.query(
@@ -266,6 +290,21 @@ function confirm_email(req, res) {
                     .status(500)
                     .json({ error: "Failed to verify email" });
                 }
+                conn.query(
+                  "SELECT * FROM teachers where email = ?",
+                  [email],
+                  (error, results) => {
+                    if (error) {
+                      console.error("Error retrieving teacher:", error);
+                      return res.status(500).json({
+                        error:
+                          "Registered but Failed to save teacher as a contact",
+                      });
+                    }
+                    // console.log(results[0]);
+                  }
+                );
+
                 // Send verification success email
                 sendVerificationSuccessEmail(email);
 
