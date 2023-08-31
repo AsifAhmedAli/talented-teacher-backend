@@ -301,17 +301,35 @@ function confirm_email(req, res) {
                           "Registered but Failed to save teacher as a contact",
                       });
                     }
-                    // console.log(results[0]);
+
+                    console.log(results[0].id);
+                    conn.query(
+                      "insert into chatroomsmembers (chatroomID, memberID) values(1, ?)",
+                      [results[0].id],
+                      (error, results) => {
+                        if (error) {
+                          console.error(
+                            "Error adding to Wellcome chatroom:",
+                            error
+                          );
+                          return res.status(500).json({
+                            error:
+                              "Registered but Failed to enter wellcome chatroom.",
+                          });
+                        }
+
+                        sendVerificationSuccessEmail(email);
+
+                        res.status(200).json({
+                          message: "Email confirmed successfully",
+                          isEmailVerified: true,
+                        });
+                      }
+                    );
                   }
                 );
-
+                // https://res.cloudinary.com/dpn5my0oj/video/upload/v1693000910/setup_ingmsh.mp4
                 // Send verification success email
-                sendVerificationSuccessEmail(email);
-
-                res.status(200).json({
-                  message: "Email confirmed successfully",
-                  isEmailVerified: true,
-                });
               }
             );
           }
