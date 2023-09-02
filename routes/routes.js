@@ -31,6 +31,15 @@ router.post(
 // router.use(handleUploadError);
 
 // photos upload routes
+router.post(
+  "/teacher/forget-password-send-mail",
+  teachers_controller.send_forget_pass_mail
+);
+
+router.post(
+  "/teacher/update-reset-password",
+  teachers_controller.update_reset_password
+);
 
 router.post(
   "/teacher/upload-photos",

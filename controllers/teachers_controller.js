@@ -6,7 +6,7 @@ const request = require("request");
 
 const {
   sendConfirmationEmail,
-
+  reset_password_email,
   sendVerificationSuccessEmail,
   sendreceipt,
 } = require("../helpers/email");
@@ -1979,6 +1979,72 @@ const send_message1 = (req, res) => {
     });
   });
 };
+const send_forget_pass_mail = (req, res) => {
+  const email = req.body.email;
+  // program to generate random strings
+
+  // declare all characters
+  const characters =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const length = 20;
+  let token = "";
+  const charactersLength = characters.length;
+  for (let i = 0; i < length; i++) {
+    token += characters.charAt(Math.floor(Math.random() * charactersLength));
+  }
+  conn.query(
+    "update teachers set reset_code = ? where email = ?",
+    [token, email],
+    (error, result) => {
+      if (error) {
+        // console.error(err);
+        return res.status(500).json({ error: "Failed to save the token" });
+      }
+      reset_password_email(token, email);
+      return res
+        .status(200)
+        .json({ message: "Email Sent. Please check your inbox!" });
+    }
+  );
+};
+
+const update_reset_password = (req, res) => {
+  const newpass = req.body.newpass;
+  const token = req.body.token;
+  bcrypt.hash(newpass, 10, (error, hashedPassword) => {
+    if (error) {
+      console.error("Error hashing password:", error);
+      return res.status(500).json({ error: "Failed to register teacher" });
+    }
+    conn.query(
+      "update teachers set password = ? where reset_code = ?",
+      [hashedPassword, token],
+      (error, result) => {
+        if (error) {
+          // console.error(err);
+          return res
+            .status(500)
+            .json({ error: "Failed to reset the password" });
+        }
+        conn.query(
+          `update teachers set reset_code = ? where reset_code = ?`,
+          [null, token],
+          (error, result) => {
+            if (error) {
+              // console.error(err);
+              return res
+                .status(500)
+                .json({ error: "Failed to save the token" });
+            }
+            return res
+              .status(200)
+              .json({ message: "Password updated successfully" });
+          }
+        );
+      }
+    );
+  });
+};
 // latest_chat_room;
 module.exports = {
   register_teacher,
@@ -2001,6 +2067,8 @@ module.exports = {
   send_message1,
   getateacher,
   check_registration_status,
+  send_forget_pass_mail,
   update_positions,
+  update_reset_password,
   hero_vote,
 };

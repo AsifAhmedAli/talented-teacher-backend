@@ -487,8 +487,31 @@ function sendVerificationSuccessEmail(email) {
   );
 }
 
+function reset_password_email(token, email) {
+  const emailContent = `
+    <h1>Password Reset</h1>
+    <p>Please click on the <a href="https://talentedteacher.org/reset_password.html?token=${token}">link</a> to reset your password.</p>
+  `;
+
+  transporter.sendMail(
+    {
+      from: process.env.EMAIL_SENDER,
+      to: email,
+      subject: "Reset Password",
+      html: emailContent,
+    },
+    (error, info) => {
+      if (error) {
+        console.error("Error sending verification success email:", error);
+      } else {
+        console.log("Verification success email sent:", info.response);
+      }
+    }
+  );
+}
 module.exports = {
   sendConfirmationEmail,
   sendVerificationSuccessEmail,
   sendreceipt,
+  reset_password_email,
 };
