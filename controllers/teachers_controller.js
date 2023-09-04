@@ -687,8 +687,8 @@ function get_all_teachers(req, res) {
 
       // Query the `teachers` table with pagination
       const query = limit
-        ? "SELECT * FROM teachers LIMIT ? OFFSET ?"
-        : "SELECT * FROM teachers";
+        ? "SELECT * FROM teachers order by group_id asc LIMIT ? OFFSET ?"
+        : "SELECT * FROM teachers order by group_id asc";
       const params = limit ? [limit, offset] : [];
 
       conn.query(query, params, (error, results) => {
