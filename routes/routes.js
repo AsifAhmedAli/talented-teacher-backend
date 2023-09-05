@@ -88,6 +88,10 @@ router.put(
   teachers_controller.edit_teacher
 );
 
+router.post(
+  "/resend/verification-email",
+  teachers_controller.resent_verification_email
+);
 router.get(
   "/teacher/fetch-groups/",
   // upload.single("profile_picture"),

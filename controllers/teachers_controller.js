@@ -216,7 +216,7 @@ function register_teacher(req, res) {
             request(options, function (error, response, body) {
               if (error) throw new Error(error);
 
-              console.log(body);
+              // console.log(body);
             });
             // Send confirmation email
             sendConfirmationEmail(name, email, verificationToken);
@@ -339,6 +339,45 @@ function confirm_email(req, res) {
   });
 }
 
+const resent_verification_email = (req, res) => {
+  const email = req.body.email;
+  // console.log(email);
+  conn.query(
+    "select * from teachers where email = ?",
+    [email],
+    (error, result) => {
+      // console.log(result);
+      // console.log(result.length);
+      if (result.length == 0) {
+        return res
+          .status(404)
+          .json({ error: "This email address is not registered!" });
+      }
+      if (error) {
+        console.error("Error finding the teacher:", error);
+        return res.status(500).json({ error: "Failed to find teacher" });
+      }
+      const isverified = result[0].is_email_verified;
+      // console.log(isverified);
+      const name = result[0].name;
+      if (isverified) {
+        console.error("Error: Your email is already verified");
+        return res
+          .status(400)
+          .json({ error: "Your email is already verified" });
+      }
+
+      const verificationToken = jwt.sign({ email }, process.env.JWT_SECRET, {
+        expiresIn: "1d",
+      });
+      sendConfirmationEmail(name, email, verificationToken);
+      res.status(200).json({
+        message:
+          "Email sent successfully! Please check your inbox to verify your account.",
+      });
+    }
+  );
+};
 //   Teacher Login API
 
 // function login_teacher(req, res) {
@@ -2070,5 +2109,6 @@ module.exports = {
   send_forget_pass_mail,
   update_positions,
   update_reset_password,
+  resent_verification_email,
   hero_vote,
 };
