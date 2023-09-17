@@ -82,8 +82,7 @@ function sendfreevoteverificationEmail(
   free_vote_code,
   tid
 ) {
-  const confirmationLink = `https://talentedteacher.org/verify_vote.html?
-  voter_name = ${voter_name}&voter_email = ${voter_email}&free_vote_code = ${free_vote_code}&tid = ${tid}`;
+  const confirmationLink = `https://talentedteacher.org/verify_vote.html?voter_name=${voter_name}&voter_email=${voter_email}&free_vote_code=${free_vote_code}&tid=${tid}`;
 
   const emailContent = `
   <div
