@@ -9,6 +9,7 @@ const {
   reset_password_email,
   sendVerificationSuccessEmail,
   sendreceipt,
+  sendfreevoteverificationEmail,
 } = require("../helpers/email");
 
 // Configure Cloudinary
@@ -2084,6 +2085,15 @@ const update_reset_password = (req, res) => {
     );
   });
 };
+
+const sendfreevoteemail = (req, res) => {
+  const voter_name = req.body.voter_name;
+  const voter_email = req.body.voter_email;
+  const free_vote_code = req.body.free_vote_code;
+  const tid = req.body.tid;
+  sendfreevoteverificationEmail(voter_name, voter_email, free_vote_code, tid);
+  return res.status(200).json({ msg: "Email sent Successfully" });
+};
 // latest_chat_room;
 module.exports = {
   register_teacher,
@@ -2091,6 +2101,7 @@ module.exports = {
   check_tournament_status,
   get_all_verified_teachers,
   confirm_email,
+  sendfreevoteemail,
   all_votes,
   login_teacher,
   supportform,

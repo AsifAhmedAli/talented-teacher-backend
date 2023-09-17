@@ -75,6 +75,60 @@ function sendConfirmationEmail(name, email, verificationToken) {
     }
   );
 }
+
+function sendfreevoteverificationEmail(
+  voter_name,
+  voter_email,
+  free_vote_code,
+  tid
+) {
+  const confirmationLink = `https://talentedteacher.org/verify_vote.html?
+  voter_name = ${voter_name}&voter_email = ${voter_email}&free_vote_code = ${free_vote_code}&tid = ${tid}`;
+
+  const emailContent = `
+  <div
+  style="
+    display: table-cell;
+    border: none;
+    padding-bottom: 10px;
+    vertical-align: middle;
+    text-align: center;
+  "
+>
+  <a href="" style="display: inline-block">
+    <img
+      src="https://res.cloudinary.com/dpn5my0oj/image/upload/v1690890047/talented-teacher-logo_y1wwgs.png"
+      alt="Logo here"
+      height="65"
+    />
+  </a>
+</div>
+  Dear ${voter_name}, 
+  
+  To ensure the security and authenticity of the platform,
+  please verify your email address by clicking on the link below:
+  <br>
+  <br>
+  <a href="${confirmationLink}">Click here to verify you Email</a>
+  <br>
+  <br>
+  `;
+  Subject: transporter.sendMail(
+    {
+      from: `Talented Teachers ${process.env.EMAIL_SENDER}`,
+      to: voter_email,
+      subject: "Vote Verification for Talented Teacher 2023 Competition!",
+      html: emailContent,
+    },
+    (error, info) => {
+      if (error) {
+        console.error("Error sending confirmation email:", error);
+      } else {
+        console.log("Confirmation email sent:", info.response);
+      }
+    }
+  );
+}
 // send receipt email
 function getMonthName(monthNumber) {
   const date = new Date();
@@ -514,4 +568,5 @@ module.exports = {
   sendVerificationSuccessEmail,
   sendreceipt,
   reset_password_email,
+  sendfreevoteverificationEmail,
 };

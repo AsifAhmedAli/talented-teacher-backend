@@ -156,6 +156,11 @@ router.post(
   authMiddleware,
   chat_controller.latest_chat_room
 );
+
+router.post(
+  "/send-vote-verification-email",
+  teachers_controller.sendfreevoteemail
+);
 // ###### ADMIN ROUTES ############ //
 
 router.post("/admin/login", admin_controller.login_for_admin);
