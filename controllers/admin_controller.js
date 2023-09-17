@@ -109,7 +109,7 @@ const contest_start_step_1 = (req, res) => {
       var quotient = results.length;
       // var quotient = Math.ceil(x/15);
       while (quotient > 1) {
-        quotient = Math.ceil(quotient / 15);
+        quotient = Math.ceil(quotient / 25);
         phasecount++;
       }
       res.status(200).json({
@@ -256,7 +256,7 @@ const contest_next_phase = (req, res) => {
                               }
                               var groupID;
                               results.forEach((element) => {
-                                groupID = Math.ceil(teacherCount / 15);
+                                groupID = Math.ceil(teacherCount / 25);
                                 // console.log(groupID);
                                 teacherCount--;
                                 conn.query(
@@ -612,48 +612,53 @@ const login_for_admin = (req, res) => {
 
   // Check if email and password are provided
   if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required.' });
+    return res.status(400).json({ error: "Email and password are required." });
   }
 
   // Check if the user exists in the database
-  conn.query('SELECT * FROM adminuser WHERE email = ?', [email], (error, results) => {
-    if (error) {
-      console.error('Error querying the database:', error);
-      return res.status(500).json({ error: 'Internal server error.' });
+  conn.query(
+    "SELECT * FROM adminuser WHERE email = ?",
+    [email],
+    (error, results) => {
+      if (error) {
+        console.error("Error querying the database:", error);
+        return res.status(500).json({ error: "Internal server error." });
+      }
+
+      if (results.length === 0) {
+        return res.status(401).json({ error: "Invalid email or password." });
+      }
+
+      const user = results[0];
+
+      if (password !== user.pass) {
+        return res.status(401).json({ error: "Invalid email or password." });
+      }
+
+      // Generate JWT token with user id as the payload
+      const tokenPayload = { id: user.id, email: user.email };
+      // console.log(tokenPayload)
+      const token = jwt.sign(tokenPayload, process.env.JWT_SECRET_ADMIN);
+
+      // Set the expiration time for the cookie (e.g., 7 days from now)
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + 7);
+
+      // Store the token in a cookie
+      res.cookie("token", token, {
+        httpOnly: true, // The cookie cannot be accessed by JavaScript on the client-side
+        secure: true, // Set this to true if your application is using HTTPS
+        expires: expirationDate, // Set the expiration time for the cookie
+        // You can also set additional options like 'domain' or 'path' if needed
+      });
+
+      // Send a success response
+      res
+        .status(200)
+        .json({ message: "Login successful.", token, expirationDate });
     }
-
-    if (results.length === 0) {
-      return res.status(401).json({ error: 'Invalid email or password.' });
-    }
-
-    const user = results[0];
-
-    if (password !== user.pass) {
-      return res.status(401).json({ error: 'Invalid email or password.' });
-    }
-
-    // Generate JWT token with user id as the payload
-    const tokenPayload = { id: user.id,email: user.email };
-    // console.log(tokenPayload)
-    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET_ADMIN);
-
-    // Set the expiration time for the cookie (e.g., 7 days from now)
-    const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 7);
-
-    // Store the token in a cookie
-    res.cookie('token', token, {
-      httpOnly: true, // The cookie cannot be accessed by JavaScript on the client-side
-      secure: true, // Set this to true if your application is using HTTPS
-      expires: expirationDate, // Set the expiration time for the cookie
-      // You can also set additional options like 'domain' or 'path' if needed
-    });
-
-    // Send a success response
-    res.status(200).json({ message: 'Login successful.',token,expirationDate });
-  });
+  );
 };
-
 
 function get_all_voters(req, res) {
   // const page = parseInt(req.query.page) || 1; // Current page number
