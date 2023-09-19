@@ -368,7 +368,7 @@ function sendreceipt(name, amount, email, vote_countaa, tid) {
                                 padding: 3px;
                               "
                             >
-                              Vote# 414222
+                              
                             </td>
                             <td
                               style="
